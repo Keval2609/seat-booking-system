@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: seat-booking-db
+    environment:
+      POSTGRES_DB: seat_booking
+      POSTGRES_USER: seat_app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seat_app -d seat_booking"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:

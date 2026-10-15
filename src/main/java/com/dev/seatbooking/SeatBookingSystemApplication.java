@@ -8,8 +8,11 @@ import java.util.TimeZone;
 @SpringBootApplication
 public class SeatBookingSystemApplication {
 
-    public static void main(String[] args) {
+    static {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
+    }
+
+    public static void main(String[] args) {
         SpringApplication.run(SeatBookingSystemApplication.class, args);
     }
 

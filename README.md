@@ -88,6 +88,10 @@ To execute unit and integration tests:
 | `GET` | `/actuator/health` | Spring Boot Actuator health endpoint |
 | `POST` | `/api/auth/register` | Register a new user account |
 | `POST` | `/api/auth/login` | Authenticate and obtain a JWT access token |
+| `POST` | `/api/events` | Create a new event (ADMIN) |
+| `GET` | `/api/events` | List events, paginated |
+| `POST` | `/api/events/{id}/seats/bulk` | Bulk-create seats for an event (ADMIN) |
+| `GET` | `/api/events/{id}/seats` | List seats with status for an event |
 
 > **Note (NFR-7):** Authentication uses short-lived (15-minute) JWT access tokens with no token revocation in v1; compromised tokens remain valid until expiration (accepted risk).
 

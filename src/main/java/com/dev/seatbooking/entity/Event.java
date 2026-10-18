@@ -66,17 +66,6 @@ public class Event {
         return createdAt;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setVenue(String venue) {
-        this.venue = venue;
-    }
-
-    public void setStartsAt(Instant startsAt) {
-        this.startsAt = startsAt;
-    }
 
     @Override
     public boolean equals(Object o) {

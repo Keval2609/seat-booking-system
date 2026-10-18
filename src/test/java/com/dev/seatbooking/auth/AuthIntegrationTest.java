@@ -7,6 +7,7 @@ import com.dev.seatbooking.entity.User;
 import com.dev.seatbooking.repository.UserRepository;
 import com.dev.seatbooking.security.JwtService;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -97,7 +98,7 @@ class AuthIntegrationTest {
                 .andExpect(jsonPath("$.code").value("EMAIL_TAKEN"));
     }
 
-    @Test
+    @RepeatedTest(20)
     @DisplayName("A3: 10 parallel registers, same email yields exactly 1 x 201, rest 409, zero 500")
     void a3_parallelRegistersSameEmail() throws Exception {
         String email = UUID.randomUUID() + "@parallel.com";

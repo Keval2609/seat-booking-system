@@ -86,6 +86,10 @@ To execute unit and integration tests:
 |---|---|---|
 | `GET` | `/api/health` | Application health check endpoint |
 | `GET` | `/actuator/health` | Spring Boot Actuator health endpoint |
+| `POST` | `/api/auth/register` | Register a new user account |
+| `POST` | `/api/auth/login` | Authenticate and obtain a JWT access token |
+
+> **Note (NFR-7):** Authentication uses short-lived (15-minute) JWT access tokens with no token revocation in v1; compromised tokens remain valid until expiration (accepted risk).
 
 ### Health Check Example
 

@@ -14,14 +14,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Transactional
+@ActiveProfiles("test")
 @Import(TestcontainersConfig.class)
 class SeatConstraintIntegrationTest {
 
@@ -37,7 +40,7 @@ class SeatConstraintIntegrationTest {
     @Test
     @DisplayName("T11: Inserting a seat with status=HELD and holdId=null must violate check constraint and throw")
     void insertingSeatWithHeldStatusAndNullHoldIdThrows() {
-        User user = userRepository.save(new User("organizer@example.com", "hash", Role.ADMIN));
+        User user = userRepository.save(new User(UUID.randomUUID() + "@example.com", "hash", Role.ADMIN));
         Event event = eventRepository.save(new Event("Rock Concert", "Arena", Instant.now().plusSeconds(3600), user.getId()));
 
         Seat invalidSeat = new Seat(event.getId(), "A1", 5000, SeatStatus.HELD, null);

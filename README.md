@@ -8,6 +8,7 @@ A backend RESTful service for managing seat bookings and events, built with Spri
 
 - **Java 21**
 - **Spring Boot 4.x** (Web, Data JPA, Validation, Actuator)
+- **Spring Security & OAuth2 Resource Server** (Stateless JWT authentication and role-based access control)
 - **PostgreSQL 17**
 - **Flyway** (Database migrations)
 - **Docker & Docker Compose** (Local database orchestration)
@@ -36,11 +37,19 @@ cd seat-booking-system
 
 ### 2. Configure Environment
 
-Create a `.env` file in the project root to configure required variables (such as database credentials):
+Create a `.env` file in the project root to configure required variables (such as database credentials and JWT secret):
 
 ```env
 DB_PASSWORD=your_secure_password
+JWT_SECRET=your_32_byte_base64_encoded_secret
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin_secure_password
 ```
+
+> **Note:** Generate a secure 256-bit secret for `JWT_SECRET`:
+> ```bash
+> openssl rand -base64 32
+> ```
 
 ### 3. Start PostgreSQL Database
 
@@ -119,11 +128,15 @@ seat-booking-system/
 └── src/
     ├── main/
     │   ├── java/com/dev/seatbooking/
-    │   │   ├── controller/   # REST Controllers (e.g., HealthController)
+    │   │   ├── auth/         # Authentication endpoints, services, and DTOs
+    │   │   ├── config/       # Security, JWT, and Admin bootstrap configuration
+    │   │   ├── controller/   # REST Controllers (e.g., EventController, HealthController)
+    │   │   ├── dto/          # Data Transfer Objects
     │   │   ├── entity/       # JPA Entities
+    │   │   ├── error/        # ErrorResponse, ApiException, and GlobalExceptionHandler
     │   │   ├── repository/   # Spring Data Repositories
-    │   │   ├── service/      # Business Logic Services
-    │   │   └── ...
+    │   │   ├── security/     # JWT service and authentication failure handlers
+    │   │   └── service/      # Business Logic Services
     │   └── resources/
     │       ├── application.properties
     │       └── db/migration/ # Flyway SQL migration scripts

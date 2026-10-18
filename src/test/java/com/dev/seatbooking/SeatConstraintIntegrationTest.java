@@ -1,11 +1,14 @@
 package com.dev.seatbooking;
 
 import com.dev.seatbooking.entity.Event;
+import com.dev.seatbooking.entity.Hold;
+import com.dev.seatbooking.entity.HoldStatus;
 import com.dev.seatbooking.entity.Role;
 import com.dev.seatbooking.entity.Seat;
 import com.dev.seatbooking.entity.SeatStatus;
 import com.dev.seatbooking.entity.User;
 import com.dev.seatbooking.repository.EventRepository;
+import com.dev.seatbooking.repository.HoldRepository;
 import com.dev.seatbooking.repository.SeatRepository;
 import com.dev.seatbooking.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +38,9 @@ class SeatConstraintIntegrationTest {
     private EventRepository eventRepository;
 
     @Autowired
+    private HoldRepository holdRepository;
+
+    @Autowired
     private SeatRepository seatRepository;
 
     @Test
@@ -48,4 +54,31 @@ class SeatConstraintIntegrationTest {
         assertThatThrownBy(() -> seatRepository.saveAndFlush(invalidSeat))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
+
+    @Test
+    @DisplayName("T11: Inserting a seat with status=AVAILABLE and non-null holdId must violate check constraint and throw")
+    void insertingSeatWithAvailableStatusAndNonNullHoldIdThrows() {
+        User user = userRepository.save(new User(UUID.randomUUID() + "@example.com", "hash", Role.ADMIN));
+        Event event = eventRepository.save(new Event("Rock Concert", "Arena", Instant.now().plusSeconds(3600), user.getId()));
+        Hold hold = holdRepository.save(new Hold(user.getId(), event.getId(), HoldStatus.ACTIVE, Instant.now().plusSeconds(300)));
+
+        Seat invalidSeat = new Seat(event.getId(), "A2", 5000, SeatStatus.AVAILABLE, hold.getId());
+
+        assertThatThrownBy(() -> seatRepository.saveAndFlush(invalidSeat))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("T11: Inserting a seat with status=BOOKED and non-null holdId must violate check constraint and throw")
+    void insertingSeatWithBookedStatusAndNonNullHoldIdThrows() {
+        User user = userRepository.save(new User(UUID.randomUUID() + "@example.com", "hash", Role.ADMIN));
+        Event event = eventRepository.save(new Event("Rock Concert", "Arena", Instant.now().plusSeconds(3600), user.getId()));
+        Hold hold = holdRepository.save(new Hold(user.getId(), event.getId(), HoldStatus.ACTIVE, Instant.now().plusSeconds(300)));
+
+        Seat invalidSeat = new Seat(event.getId(), "A3", 5000, SeatStatus.BOOKED, hold.getId());
+
+        assertThatThrownBy(() -> seatRepository.saveAndFlush(invalidSeat))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
 }
+

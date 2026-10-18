@@ -18,6 +18,11 @@ public class EventService {
         this.eventRepository = eventRepository;
     }
 
+    /**
+     * Note: If a signed token's subject has no matching user row, the created_by foreign key
+     * constraint will fail with DataIntegrityViolationException (500). This cannot happen in v1
+     * because users cannot be deleted and tokens are issued only for existing users.
+     */
     @Transactional
     public EventResponse create(CreateEventRequest req, Long adminId) {
         Event saved = eventRepository.save(

@@ -35,4 +35,15 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
             from Seat s where s.eventId = :eventId order by s.id
             """)
     List<SeatResponse> findViewsByEventId(@Param("eventId") Long eventId);
+
+    @Query("select s from Seat s where s.eventId = :eventId and s.id in :ids order by s.id")
+    List<Seat> findForEvent(@Param("eventId") Long eventId, @Param("ids") List<Long> ids);
+
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            UPDATE seats
+            SET status = 'HELD', hold_id = :holdId, version = version + 1
+            WHERE id IN (:ids)
+            """, nativeQuery = true)
+    int blindHold(@Param("holdId") Long holdId, @Param("ids") List<Long> ids);
 }

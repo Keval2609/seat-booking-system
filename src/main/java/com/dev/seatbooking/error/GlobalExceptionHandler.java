@@ -23,6 +23,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(e.status()).body(new ErrorResponse(e.code(), e.getMessage()));
     }
 
+    @ExceptionHandler(SeatUnavailableException.class)
+    ResponseEntity<ErrorResponse> seat(SeatUnavailableException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("SEAT_UNAVAILABLE", e.getMessage(), e.getSeatIds()));
+    }
+
+    @ExceptionHandler(EventClosedException.class)
+    ResponseEntity<ErrorResponse> closed(EventClosedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("EVENT_CLOSED", e.getMessage(), null));
+    }
+
+    @ExceptionHandler(ValidationFailedException.class)
+    ResponseEntity<ErrorResponse> invalid(ValidationFailedException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("VALIDATION_FAILED", e.getMessage(), null));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ErrorResponse> validation(MethodArgumentNotValidException e) {
         String msg = e.getBindingResult().getFieldErrors().stream()

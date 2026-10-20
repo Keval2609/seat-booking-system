@@ -46,4 +46,14 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
             WHERE id IN (:ids)
             """, nativeQuery = true)
     int blindHold(@Param("holdId") Long holdId, @Param("ids") List<Long> ids);
+
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            UPDATE seats
+            SET status = 'HELD', hold_id = :holdId, version = version + 1
+            WHERE id = :id AND version = :version
+            """, nativeQuery = true)
+    int compareAndHold(@Param("id") Long id,
+                       @Param("version") Long version,
+                       @Param("holdId") Long holdId);
 }

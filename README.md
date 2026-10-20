@@ -101,6 +101,8 @@ To execute unit and integration tests:
 | `GET` | `/api/events` | List events, paginated |
 | `POST` | `/api/events/{id}/seats/bulk` | Bulk-create seats for an event (ADMIN) |
 | `GET` | `/api/events/{id}/seats` | List seats with status for an event |
+| `POST` | `/api/events/{id}/holds` | Hold 1 to 6 seats for an event (USER) |
+| `DELETE` | `/api/holds/{holdId}` | Release own hold (USER) |
 
 > **Note (NFR-7):** Authentication uses short-lived (15-minute) JWT access tokens with no token revocation in v1; compromised tokens remain valid until expiration (accepted risk).
 

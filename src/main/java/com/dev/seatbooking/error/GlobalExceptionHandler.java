@@ -2,9 +2,11 @@ package com.dev.seatbooking.error;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -68,8 +70,20 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("METHOD_NOT_ALLOWED", e.getMessage()));
     }
 
+    @ExceptionHandler({ObjectOptimisticLockingFailureException.class, PessimisticLockingFailureException.class})
+    ResponseEntity<ErrorResponse> lockConflict(Exception e) {
+        log.warn("Lock conflict: {}", e.getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("SEAT_UNAVAILABLE", "One or more seats are not available"));
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorResponse> catchAll(Exception e) {
+        if (e instanceof org.springframework.web.ErrorResponse spring) {
+            int sc = spring.getStatusCode().value();
+            String code = sc == 400 ? "VALIDATION_FAILED" : "REQUEST_REJECTED";
+            return ResponseEntity.status(sc).body(new ErrorResponse(code, "Request rejected"));
+        }
         log.error("Unhandled exception: ", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));

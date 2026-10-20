@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -145,7 +146,6 @@ class HoldIntegrationTest {
         Long eventId = createEvent(adminToken, Instant.now().plus(Duration.ofDays(5)));
         bulkCreateSeats(adminToken, eventId, 2, 2);
 
-        List<Seat> seats = seatRepository.findForEvent(eventId, List.of());
         List<Long> seatIds = seatRepository.findAll().stream()
                 .filter(s -> s.getEventId().equals(eventId))
                 .map(Seat::getId)
@@ -175,6 +175,35 @@ class HoldIntegrationTest {
         assertThat(seat.getHoldId()).isEqualTo(holdId);
         assertThat(seat.getVersion()).isEqualTo(1L);
 
+        assertInvariantQueriesClean();
+    }
+
+    @Test
+    @DisplayName("FR-9: multi-seat hold is all-or-nothing")
+    void holdIsAllOrNothing() throws Exception {
+        String adminToken = tokenFor(Role.ADMIN);
+        String a = tokenFor(Role.USER);
+        String b = tokenFor(Role.USER);
+        Long eventId = createEvent(adminToken, Instant.now().plus(Duration.ofDays(5)));
+        bulkCreateSeats(adminToken, eventId, 2, 2);
+        List<Long> ids = seatRepository.findAll().stream()
+                .filter(s -> s.getEventId().equals(eventId))
+                .map(Seat::getId).sorted().toList();
+
+        mockMvc.perform(post("/api/events/" + eventId + "/holds")
+                        .header("Authorization", "Bearer " + a)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"seatIds\": [" + ids.get(0) + "]}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/events/" + eventId + "/holds")
+                        .header("Authorization", "Bearer " + b)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"seatIds\": [" + ids.get(0) + "," + ids.get(1) + "]}"))
+                .andExpect(status().isConflict());
+
+        assertThat(seatRepository.findById(ids.get(1)).orElseThrow().getStatus())
+                .isEqualTo(SeatStatus.AVAILABLE);
         assertInvariantQueriesClean();
     }
 
@@ -356,5 +385,120 @@ class HoldIntegrationTest {
                 .andExpect(jsonPath("$.message", is("Seat not found in event")));
 
         assertThat(holdRepository.count()).isEqualTo(holdsCountBefore);
+    }
+
+    @Test
+    @DisplayName("Release hold then another user holds: 201 Created and clean invariants")
+    void releaseHold_success_anotherUserCanHold() throws Exception {
+        String adminToken = tokenFor(Role.ADMIN);
+        String userAToken = tokenFor(Role.USER);
+        String userBToken = tokenFor(Role.USER);
+
+        Long eventId = createEvent(adminToken, Instant.now().plus(Duration.ofDays(5)));
+        bulkCreateSeats(adminToken, eventId, 2, 2);
+
+        Long seatId = seatRepository.findAll().stream()
+                .filter(s -> s.getEventId().equals(eventId))
+                .map(Seat::getId).sorted().toList().getFirst();
+
+        MvcResult result = mockMvc.perform(post("/api/events/" + eventId + "/holds")
+                        .header("Authorization", "Bearer " + userAToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"seatIds\": [" + seatId + "]}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long holdId = ((Number) JsonPath.read(result.getResponse().getContentAsString(), "$.holdId")).longValue();
+
+        mockMvc.perform(delete("/api/holds/" + holdId)
+                        .header("Authorization", "Bearer " + userAToken))
+                .andExpect(status().isNoContent());
+
+        Seat seat = seatRepository.findById(seatId).orElseThrow();
+        assertThat(seat.getStatus()).isEqualTo(SeatStatus.AVAILABLE);
+        assertThat(seat.getHoldId()).isNull();
+        assertInvariantQueriesClean();
+
+        mockMvc.perform(post("/api/events/" + eventId + "/holds")
+                        .header("Authorization", "Bearer " + userBToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"seatIds\": [" + seatId + "]}"))
+                .andExpect(status().isCreated());
+        assertInvariantQueriesClean();
+    }
+
+    @Test
+    @DisplayName("Release hold by non-owner: 403 HOLD_NOT_OWNED")
+    void releaseHold_byNonOwner_returns403HoldNotOwned() throws Exception {
+        String adminToken = tokenFor(Role.ADMIN);
+        String userAToken = tokenFor(Role.USER);
+        String userBToken = tokenFor(Role.USER);
+
+        Long eventId = createEvent(adminToken, Instant.now().plus(Duration.ofDays(5)));
+        bulkCreateSeats(adminToken, eventId, 2, 2);
+
+        Long seatId = seatRepository.findAll().stream()
+                .filter(s -> s.getEventId().equals(eventId))
+                .map(Seat::getId).sorted().toList().getFirst();
+
+        MvcResult result = mockMvc.perform(post("/api/events/" + eventId + "/holds")
+                        .header("Authorization", "Bearer " + userAToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"seatIds\": [" + seatId + "]}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long holdId = ((Number) JsonPath.read(result.getResponse().getContentAsString(), "$.holdId")).longValue();
+
+        mockMvc.perform(delete("/api/holds/" + holdId)
+                        .header("Authorization", "Bearer " + userBToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code", is("HOLD_NOT_OWNED")));
+
+        assertInvariantQueriesClean();
+    }
+
+    @Test
+    @DisplayName("Double release: 409 HOLD_NOT_ACTIVE")
+    void releaseHold_doubleRelease_returns409HoldNotActive() throws Exception {
+        String adminToken = tokenFor(Role.ADMIN);
+        String userAToken = tokenFor(Role.USER);
+
+        Long eventId = createEvent(adminToken, Instant.now().plus(Duration.ofDays(5)));
+        bulkCreateSeats(adminToken, eventId, 2, 2);
+
+        Long seatId = seatRepository.findAll().stream()
+                .filter(s -> s.getEventId().equals(eventId))
+                .map(Seat::getId).sorted().toList().getFirst();
+
+        MvcResult result = mockMvc.perform(post("/api/events/" + eventId + "/holds")
+                        .header("Authorization", "Bearer " + userAToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"seatIds\": [" + seatId + "]}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long holdId = ((Number) JsonPath.read(result.getResponse().getContentAsString(), "$.holdId")).longValue();
+
+        mockMvc.perform(delete("/api/holds/" + holdId)
+                        .header("Authorization", "Bearer " + userAToken))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(delete("/api/holds/" + holdId)
+                        .header("Authorization", "Bearer " + userAToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("HOLD_NOT_ACTIVE")));
+
+        assertInvariantQueriesClean();
+    }
+
+    @Test
+    @DisplayName("Release non-existent hold: 404 HOLD_NOT_FOUND")
+    void releaseHold_notFound_returns404HoldNotFound() throws Exception {
+        String userAToken = tokenFor(Role.USER);
+
+        mockMvc.perform(delete("/api/holds/999999")
+                        .header("Authorization", "Bearer " + userAToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code", is("HOLD_NOT_FOUND")));
+
+        assertInvariantQueriesClean();
     }
 }

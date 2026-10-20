@@ -64,4 +64,34 @@ public class HoldService {
         strategy.acquire(created.holdId(), eventId, sorted);
         return created;
     }
+
+    @Transactional
+    public void release(Long userId, Long holdId) {
+        int won = jdbc.sql("""
+                UPDATE holds SET status = 'RELEASED'
+                WHERE id = :id AND user_id = :userId AND status = 'ACTIVE'
+                """)
+                .param("id", holdId).param("userId", userId).update();
+
+        if (won == 0) {
+            var row = jdbc.sql("SELECT user_id, status FROM holds WHERE id = :id")
+                    .param("id", holdId)
+                    .query((rs, n) -> new Object[]{rs.getLong("user_id"), rs.getString("status")})
+                    .optional()
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "HOLD_NOT_FOUND", "Hold not found"));
+            if (!userId.equals(row[0])) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "HOLD_NOT_OWNED", "Hold not owned by user");
+            }
+            if ("EXPIRED".equals(row[1])) {
+                throw new ApiException(HttpStatus.CONFLICT, "HOLD_EXPIRED", "Hold expired");
+            }
+            throw new ApiException(HttpStatus.CONFLICT, "HOLD_NOT_ACTIVE", "Hold is not active");
+        }
+
+        jdbc.sql("""
+                UPDATE seats SET status = 'AVAILABLE', hold_id = NULL, version = version + 1
+                WHERE hold_id = :id AND status = 'HELD'
+                """)
+                .param("id", holdId).update();
+    }
 }

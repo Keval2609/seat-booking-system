@@ -39,7 +39,10 @@ public class NaiveSeatLockingStrategy implements SeatLockingStrategy {
 
         afterRead();
 
-        seatRepository.blindHold(holdId, sortedSeatIds);
+        int updated = seatRepository.blindHold(holdId, sortedSeatIds);
+        if (updated != sortedSeatIds.size()) {
+            throw new SeatUnavailableException(sortedSeatIds);
+        }
     }
 
     protected void afterRead() {

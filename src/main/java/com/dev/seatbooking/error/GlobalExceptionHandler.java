@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import java.sql.SQLException;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -29,6 +30,13 @@ public class GlobalExceptionHandler {
     ResponseEntity<ErrorResponse> seat(SeatUnavailableException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse("SEAT_UNAVAILABLE", e.getMessage(), e.getSeatIds()));
+    }
+
+    @ExceptionHandler(OptimisticConflictException.class)
+    ResponseEntity<ErrorResponse> optimisticConflict(OptimisticConflictException e) {
+        log.warn("Optimistic conflict on seats: {}", e.getSeatIds());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("SEAT_UNAVAILABLE", "One or more seats are not available", e.getSeatIds()));
     }
 
     @ExceptionHandler(EventClosedException.class)
@@ -70,11 +78,34 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("METHOD_NOT_ALLOWED", e.getMessage()));
     }
 
-    @ExceptionHandler({ObjectOptimisticLockingFailureException.class, PessimisticLockingFailureException.class})
-    ResponseEntity<ErrorResponse> lockConflict(Exception e) {
-        log.warn("Lock conflict: {}", e.getClass().getSimpleName());
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    ResponseEntity<ErrorResponse> objectOptimisticConflict(ObjectOptimisticLockingFailureException e) {
+        log.warn("JPA optimistic lock conflict: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse("SEAT_UNAVAILABLE", "One or more seats are not available"));
+    }
+
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    ResponseEntity<ErrorResponse> pessimisticLockConflict(PessimisticLockingFailureException e) {
+        if (isDeadlock(e)) {
+            log.error("Database deadlock detected: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("DEADLOCK", "Database deadlock detected"));
+        }
+        log.warn("Pessimistic lock conflict: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("SEAT_UNAVAILABLE", "One or more seats are not available"));
+    }
+
+    private static boolean isDeadlock(Throwable ex) {
+        Throwable cause = ex;
+        while (cause != null) {
+            if (cause instanceof SQLException sqlEx && "40P01".equals(sqlEx.getSQLState())) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     @ExceptionHandler(Exception.class)

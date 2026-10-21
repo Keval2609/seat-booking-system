@@ -64,4 +64,23 @@ class SeatRepositoryCompareAndHoldTest {
         assertThat(reloaded.getHoldId()).isEqualTo(holdId);
         assertThat(reloaded.getVersion()).isEqualTo(currentVersion + 1);
     }
+
+    @Test
+    @Transactional
+    @DisplayName("compareAndHold fails when status is not AVAILABLE even if version matches")
+    void compareAndHoldFailsWhenStatusNotAvailable() {
+        User admin = userRepository.save(new User(UUID.randomUUID() + "@admin.com", "h", Role.ADMIN));
+        Event event = eventRepository.save(new Event("E", "Venue", Instant.now().plusSeconds(3600), admin.getId()));
+        Hold h1 = holdRepository.save(new Hold(admin.getId(), event.getId(), HoldStatus.ACTIVE, Instant.now().plusSeconds(300)));
+        Hold h2 = holdRepository.save(new Hold(admin.getId(), event.getId(), HoldStatus.ACTIVE, Instant.now().plusSeconds(300)));
+
+        Seat seat = new Seat(event.getId(), "A1", 1000, SeatStatus.HELD);
+        seat.setHoldId(h1.getId());
+        seat = seatRepository.save(seat);
+
+        Long currentVersion = seat.getVersion();
+
+        int updated = seatRepository.compareAndHold(seat.getId(), currentVersion, h2.getId());
+        assertThat(updated).isZero();
+    }
 }

@@ -13,6 +13,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -66,7 +67,8 @@ class OptimisticSeatLockingStrategyTest {
         when(seatRepository.compareAndHold(10L, 0L, 100L)).thenReturn(0);
 
         assertThatThrownBy(() -> strategy.acquire(100L, 1L, List.of(10L)))
-                .isInstanceOf(OptimisticConflictException.class);
+                .isInstanceOf(OptimisticConflictException.class)
+                .satisfies(e -> assertThat(((OptimisticConflictException) e).getSeatIds()).containsExactly(10L));
     }
 
     @Test

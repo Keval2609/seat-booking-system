@@ -39,7 +39,7 @@ public class OptimisticSeatLockingStrategy implements SeatLockingStrategy {
         }
         for (Seat seat : seats) {
             if (seatRepository.compareAndHold(seat.getId(), seat.getVersion(), holdId) != 1) {
-                throw new OptimisticConflictException();
+                throw new OptimisticConflictException(seat.getId());
             }
         }
     }

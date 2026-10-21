@@ -12,7 +12,7 @@ class OptimisticConflictExceptionTest {
     @Test
     @DisplayName("OptimisticConflictException has expected message and suppressed stack trace")
     void exceptionCharacteristics() {
-        OptimisticConflictException ex = new OptimisticConflictException(42L);
+        OptimisticConflictException ex = new OptimisticConflictException(List.of(42L));
         assertThat(ex.getMessage()).isEqualTo("Seat version changed");
         assertThat(ex.getStackTrace()).isEmpty();
         assertThat(ex.getSeatIds()).containsExactly(42L);

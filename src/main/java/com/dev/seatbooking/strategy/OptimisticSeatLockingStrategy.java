@@ -37,10 +37,14 @@ public class OptimisticSeatLockingStrategy implements SeatLockingStrategy {
         if (!blocked.isEmpty()) {
             throw new SeatUnavailableException(blocked);
         }
+        afterRead();
         for (Seat seat : seats) {
             if (seatRepository.compareAndHold(seat.getId(), seat.getVersion(), holdId) != 1) {
-                throw new OptimisticConflictException(seat.getId());
+                throw new OptimisticConflictException(List.of(seat.getId()));
             }
         }
+    }
+
+    protected void afterRead() {
     }
 }

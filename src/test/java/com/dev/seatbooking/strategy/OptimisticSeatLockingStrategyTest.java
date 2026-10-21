@@ -85,4 +85,23 @@ class OptimisticSeatLockingStrategyTest {
         verify(seatRepository).compareAndHold(10L, 0L, 100L);
         verify(seatRepository).compareAndHold(11L, 2L, 100L);
     }
+
+    @Test
+    @DisplayName("Calls afterRead hook during acquire")
+    void callsAfterReadHook() {
+        boolean[] called = new boolean[1];
+        OptimisticSeatLockingStrategy customStrategy = new OptimisticSeatLockingStrategy(seatRepository) {
+            @Override
+            protected void afterRead() {
+                called[0] = true;
+            }
+        };
+        Seat s1 = makeSeat(10L, 1L, SeatStatus.AVAILABLE, 0L);
+        when(seatRepository.findForEvent(1L, List.of(10L))).thenReturn(List.of(s1));
+        when(seatRepository.compareAndHold(10L, 0L, 100L)).thenReturn(1);
+
+        customStrategy.acquire(100L, 1L, List.of(10L));
+
+        assertThat(called[0]).isTrue();
+    }
 }

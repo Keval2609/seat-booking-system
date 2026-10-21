@@ -34,7 +34,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(OptimisticConflictException.class)
     ResponseEntity<ErrorResponse> optimisticConflict(OptimisticConflictException e) {
-        log.warn("Optimistic conflict on seats: {}", e.getSeatIds());
+        log.debug("Optimistic conflict on seats: {}", e.getSeatIds());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse("SEAT_UNAVAILABLE", "One or more seats are not available", e.getSeatIds()));
     }

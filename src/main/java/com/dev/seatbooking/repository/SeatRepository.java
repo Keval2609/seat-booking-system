@@ -2,7 +2,9 @@ package com.dev.seatbooking.repository;
 
 import com.dev.seatbooking.dto.SeatResponse;
 import com.dev.seatbooking.entity.Seat;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -56,4 +58,16 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     int compareAndHold(@Param("id") Long id,
                        @Param("version") Long version,
                        @Param("holdId") Long holdId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Seat s where s.eventId = :eventId and s.id in :ids order by s.id")
+    List<Seat> lockForEvent(@Param("eventId") Long eventId, @Param("ids") List<Long> ids);
+
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            UPDATE seats
+            SET status = 'HELD', hold_id = :holdId, version = version + 1
+            WHERE id IN (:ids) AND status = 'AVAILABLE'
+            """, nativeQuery = true)
+    int claimAvailable(@Param("holdId") Long holdId, @Param("ids") List<Long> ids);
 }
